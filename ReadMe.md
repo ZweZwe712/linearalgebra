@@ -37,7 +37,7 @@ hill-cipher-project/
 
 Clone the repository and install dependencies:
 
-```bash
+
 git clone https://github.com/<your-team>/hill-cipher-project.git
 cd hill-cipher-project
 pip install -r requirements.txt
@@ -124,7 +124,7 @@ Add a GUI (Tkinter or PyQt).
 Original Hill Image Cipher: ilyeshammadi/hill-image-cipher
 
 Linear Algebra concepts from course materials
-```
+
 
 _____________________________________________________________________
 ---------------------------------------------------------------------
