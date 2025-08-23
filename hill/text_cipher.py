@@ -1,38 +1,84 @@
 import numpy as np
-from utils.matrix_utils import matrix_mod_inv
 
-def hill_encrypt(message, key_matrix):
-    """Encrypt text using Hill cipher (mod 26)."""
-    message = message.upper().replace(" ", "")
-    n = key_matrix.shape[0]
+# Alphabet
+# alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz "
+alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?;:'\"-()[]{}<>@#$%^&*_+=/\\|`~"
 
-    # pad message
-    while len(message) % n != 0:
-        message += "X"
+letter_to_index = {ch: i for i, ch in enumerate(alphabet)}
+index_to_letter = {i: ch for i, ch in enumerate(alphabet)}
 
-    numbers = [ord(c) - ord('A') for c in message]
-    numbers = np.array(numbers).reshape(-1, n)
+# Example key matrix (3x3, must be invertible mod len(alphabet))
+K = np.array([[6, 24, 1],
+              [13, 16, 10],
+              [20, 17, 15]])
 
-    encrypted = (numbers @ key_matrix) % 26
-    return "".join(chr(int(num) + ord('A')) for row in encrypted for num in row)
+modulus = len(alphabet)
 
-def hill_decrypt(cipher, key_matrix):
-    """Decrypt text using Hill cipher (mod 26)."""
-    n = key_matrix.shape[0]
-    numbers = [ord(c) - ord('A') for c in cipher]
-    numbers = np.array(numbers).reshape(-1, n)
+# Modular inverse of determinant
+def mod_inv(a, m):
+    a = a % m
+    for x in range(1, m):
+        if (a * x) % m == 1:
+            return x
+    raise ValueError("No modular inverse")
 
-    inv_matrix = matrix_mod_inv(key_matrix, 26)
-    decrypted = (numbers @ inv_matrix) % 26
-    return "".join(chr(int(num) + ord('A')) for row in decrypted for num in row)
+# Inverse of key matrix mod m
+def matrix_mod_inv(K, m):
+    det = int(round(np.linalg.det(K)))  # determinant
+    det_inv = mod_inv(det, m)           # modular inverse of determinant
+    K_adj = np.round(det * np.linalg.inv(K)).astype(int) % m  # adjugate
+    return (det_inv * K_adj) % m
 
-def run():
-    print("\n--- Text Mode ---")
-    key = np.array([[3, 3], [2, 5]])  # Example 2x2 key
-    msg = input("Enter a message: ")
+Kinv = matrix_mod_inv(K, modulus)
 
-    enc = hill_encrypt(msg, key)
-    print("Encrypted:", enc)
+# Encrypt
+def encrypt(message, K):
+    message_numbers = [letter_to_index[ch] for ch in message]
 
-    dec = hill_decrypt(enc, key)
-    print("Decrypted:", dec)
+    # Pad automatically
+    while len(message_numbers) % K.shape[0] != 0:
+        message_numbers.append(letter_to_index[" "])
+
+    ciphertext = ""
+    for i in range(0, len(message_numbers), K.shape[0]):
+        block = np.array(message_numbers[i:i+K.shape[0]])[:, np.newaxis]
+        numbers = np.dot(K, block) % modulus
+        # ciphertext += "".join(index_to_letter[int(num)] for num in numbers)
+        ciphertext += "".join(index_to_letter[int(num.item())] for num in numbers)
+    return ciphertext
+
+# Decrypt
+def decrypt(cipher, Kinv):
+    cipher_numbers = [letter_to_index[ch] for ch in cipher]
+    
+    decrypted = ""
+    for i in range(0, len(cipher_numbers), Kinv.shape[0]):
+        block = np.array(cipher_numbers[i:i+Kinv.shape[0]])[:, np.newaxis]
+
+        # Auto-pad if last block is short
+        while block.shape[0] < Kinv.shape[0]:
+            block = np.vstack([block, [[letter_to_index[" "]]]])
+
+        numbers = np.dot(Kinv, block) % modulus
+        decrypted += "".join(index_to_letter[int(num)] for num in numbers)
+
+    return decrypted.rstrip()  # remove padding at end
+
+# Main loop
+def main():
+    while True:
+        choice = input("Do you want to (e)ncrypt, (d)ecrypt, or e(x)it? ").lower()
+        if choice == "e":
+            msg = input("Enter your message to encrypt: ")
+            print("🔐 Encrypted message:", encrypt(msg, K))
+        elif choice == "d":
+            msg = input("Enter your message to decrypt: ")
+            print("🔑 Decrypted message:", decrypt(msg, Kinv))
+        elif choice == "x":
+            print("Goodbye!")
+            break
+        else:
+            print("Invalid choice. Please enter e, d, or x.")
+
+if __name__ == "__main__":
+    main()
