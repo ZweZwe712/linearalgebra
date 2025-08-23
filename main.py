@@ -15,7 +15,16 @@ def main():
     if choice == "1":
         text_cipher.run()
     elif choice == "2":
-        image_cipher.run()
+        print("\nImage Mode:")
+        print("a. Encode")
+        print("b. Decode")
+        img_choice = input("Enter choice (a/b): ")
+        if img_choice.lower() == "a":
+            image_cipher.run(mode="encode")
+        elif img_choice.lower() == "b":
+            image_cipher.run(mode="decode")
+        else:
+            print("Invalid choice for image mode.")
     elif choice == "3":
         audio_cipher.run()
     elif choice == "0":
@@ -25,3 +34,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
