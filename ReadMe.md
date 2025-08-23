@@ -20,7 +20,7 @@ It supports three different modes:
 
 ## 🔹 Project Structure
 
-hill-cipher-project/
+linearalgebra/
 │── hill/
 │ ├── text_cipher.py # Hill Cipher for text
 │ ├── image_cipher.py # Hill Cipher for images
@@ -32,19 +32,14 @@ hill-cipher-project/
 │── requirements.txt
 │── README.md
 
-yaml
-Copy
-Edit
-
----
 
 ## 🔹 Installation
 
 Clone the repository and install dependencies:
 
-```bash
-git clone https://github.com/<your-team>/hill-cipher-project.git
-cd hill-cipher-project
+
+git clone https://github.com/ZweZwe712/linearalgebra.git
+cd linearalgebra
 pip install -r requirements.txt
 🔹 Usage
 Run the project:
@@ -73,9 +68,6 @@ Program will encrypt and decrypt using a 2x2 key matrix.
 
 Example:
 
-pgsql
-Copy
-Edit
 Enter a message: HELLO
 Encrypted: MFNCZ
 Decrypted: HELLOX
@@ -129,3 +121,27 @@ Add a GUI (Tkinter or PyQt).
 Original Hill Image Cipher: ilyeshammadi/hill-image-cipher
 
 Linear Algebra concepts from course materials
+
+
+_____________________________________________________________________
+---------------------------------------------------------------------
+##FOR MEMBERS##
+Each member should:
+
+# Clone repo
+git clone https://github.com/ZweZwe712/linearalgebra.git
+cd linearalgebra
+
+# Create their own branch for features
+git checkout -b text-mode
+# (make changes)
+git add .
+git commit -m "Added text cipher module"
+git push origin text-mode
+
+
+Then open a Pull Request on GitHub → review → merge into main.
+
+⚡ Tip: Always pull latest changes before working:
+
+git pull origin main
