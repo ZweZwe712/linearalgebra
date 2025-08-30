@@ -49,6 +49,7 @@ def encrypt(message, K):
     return ciphertext
 
 
+
 def decrypt(cipher, Kinv):
     cipher_numbers = [letter_to_index[ch] for ch in cipher if ch in letter_to_index]
 
@@ -66,6 +67,41 @@ def decrypt(cipher, Kinv):
 
 
 # ---------- GUI ----------
+
+
+##--------------------------------------Proof OF Concept -----------------------------------------------
+def encrypt_text(message, key_matrix, verbose=False):
+    import numpy as np
+
+    nums = [ord(c) - 65 for c in message.upper()]
+    chunk_size = key_matrix.shape[0]
+    chunks = [nums[i:i+chunk_size] for i in range(0, len(nums), chunk_size)]
+
+    encrypted_chunks = []
+    for chunk in chunks:
+        # Pad with 'X' (23) if chunk is too short
+        while len(chunk) < chunk_size:
+            chunk.append(23)
+
+        vec = np.array(chunk)
+        if verbose:
+            print("\nChunk vector:\n", vec)
+            print("Key matrix:\n", key_matrix)
+            print("Multiplication result:\n", np.dot(key_matrix, vec))
+
+        enc_vec = np.dot(key_matrix, vec) % 26
+        if verbose:
+            print("After mod 26:\n", enc_vec)
+
+        encrypted_chunks.extend(enc_vec)
+
+    encrypted_text = ''.join(chr(int(num) + 65) for num in encrypted_chunks)
+    return encrypted_text
+
+
+
+# ---------------- GUI run (same structure as before, using the new functions) ----------------
+
 def run(parent=None):
     window = tk.Toplevel(parent) if parent else tk.Tk()
     window.title("Text Cipher (Encrypt & Decrypt)")

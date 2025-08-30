@@ -40,6 +40,7 @@ class Hill:
         pad = (-L) % self.n
         if pad:
             flat = np.pad(flat, (0, pad), mode="constant")
+            print(f"Padding applied: added {pad} zero(s) to match block size.")
         m = flat.size // self.n
         return flat.reshape(m, self.n).T, L
 
@@ -47,15 +48,30 @@ class Hill:
         out = arr.T.reshape(-1)[:orig_len]
         return out.astype(np.uint8)
 
-    def encode(self, data: np.ndarray) -> np.ndarray:
+    def encode(self, data: np.ndarray, verbose=False) -> np.ndarray:
         B, L = self._blocks(data)
-        E = (self._key @ B) % self.modulus
-        return self._unblocks(E, L)
+        encrypted_blocks = (self._key @ B) % self.modulus
+        if verbose:
+            for i in range(B.shape[1]):
+                print(f"\nBlock {i+1}:")
+                print("Input vector:\n", B[:, i])
+                print("Key matrix:\n", self._key)
+                print("Multiplication result:\n", (self._key @ B[:, i]))
+                print("After mod", self.modulus, ":\n", encrypted_blocks[:, i])
+        return self._unblocks(encrypted_blocks, L)
 
-    def decode(self, data: np.ndarray) -> np.ndarray:
+    def decode(self, data: np.ndarray, verbose=False) -> np.ndarray:
         B, L = self._blocks(data)
-        D = (self._inv @ B) % self.modulus
-        return self._unblocks(D, L)
+        decrypted_blocks = (self._inv @ B) % self.modulus
+        if verbose:
+            for i in range(B.shape[1]):
+                print(f"\nBlock {i+1}:")
+                print("Encrypted vector:\n", B[:, i])
+                print("Inverse key matrix:\n", self._inv)
+                print("Multiplication result:\n", (self._inv @ B[:, i]))
+                print("After mod", self.modulus, ":\n", decrypted_blocks[:, i])
+        return self._unblocks(decrypted_blocks, L)
+
 
 
 # ---------- Shared helper ----------
