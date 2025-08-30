@@ -1,154 +1,148 @@
-import tkinter as tk
-from tkinter import messagebox
 import numpy as np
-from utils.matrix_utils import matrix_mod_inv
+import tkinter as tk
+from tkinter import messagebox, scrolledtext
 
-# ---------------- Helper to collect letters and positions ----------------
-def _collect_letters(text):
-    """
-    Return (letters_upper, letter_positions, original_cases)
-      - letters_upper: list of uppercase letters (A..Z) from the text, in order
-      - letter_positions: indices in original text where letters occur
-      - original_cases: list of booleans parallel to letters indicating original was lowercase (True) or uppercase (False)
-    """
-    letters = []
-    positions = []
-    cases = []
-    for i, ch in enumerate(text):
-        if ch.isalpha():
-            positions.append(i)
-            cases.append(ch.islower())
-            letters.append(ch.upper())
-    return letters, positions, cases
+alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?;:'\"-()[]{}<>@#$%^&*_+=/\\|`~"
+letter_to_index = {ch: i for i, ch in enumerate(alphabet)}
+index_to_letter = {i: ch for i, ch in enumerate(alphabet)}
+modulus = len(alphabet)
 
-# ---------------- Hill encrypt/decrypt preserving case & non-letters ----------------
-def hill_encrypt(message, key_matrix):
-    """Encrypt while preserving case and non-letters.
-       - Letters are processed; other characters are kept in place.
-       - If padding is required, extra cipher letters are appended at the end.
-    """
-    if key_matrix.shape[0] != key_matrix.shape[1]:
-        raise ValueError("Key matrix must be square (n x n).")
 
-    n = key_matrix.shape[0]
-    letters, positions, cases = _collect_letters(message)
+# ---------- Math helpers ----------
+def mod_inv(a, m):
+    a = a % m
+    for x in range(1, m):
+        if (a * x) % m == 1:
+            return x
+    raise ValueError("No modular inverse")
 
-    # pad letters so length is multiple of n
-    pad_count = (-len(letters)) % n
-    if pad_count:
-        letters += ['X'] * pad_count
 
-    # numeric transform: A->0 .. Z->25
-    nums = np.array([ord(c) - ord('A') for c in letters]).reshape(-1, n)
-    encrypted = (nums @ key_matrix) % 26
-    encrypted_flat = [chr(int(num) + ord('A')) for row in encrypted for num in row]
+def matrix_mod_inv(K, m):
+    det = int(round(np.linalg.det(K)))
+    det_inv = mod_inv(det, m)
+    K_adj = np.round(det * np.linalg.inv(K)).astype(int) % m
+    return (det_inv * K_adj) % m
 
-    # Build output: replace letters in original positions with encrypted letters preserving original case,
-    # then append any remaining encrypted letters (from padding) to the end.
-    out_chars = list(message)
-    j = 0
-    for pos_index, is_lower in zip(positions, cases):
-        enc_ch = encrypted_flat[j]
-        out_chars[pos_index] = enc_ch.lower() if is_lower else enc_ch
-        j += 1
 
-    # remaining encrypted letters (due to padding) append to end
-    remaining = encrypted_flat[j:]
-    if remaining:
-        out_chars.extend(remaining)   # appended as uppercase (you may .lower() them if you prefer)
-    return ''.join(out_chars)
+def generate_key(n=3):
+    while True:
+        K = np.random.randint(0, modulus, size=(n, n))
+        try:
+            _ = matrix_mod_inv(K, modulus)
+            return K
+        except ValueError:
+            continue
 
-def hill_decrypt(ciphertext, key_matrix, strip_padding=False):
-    """Decrypt while preserving case/non-letters.
-       - If strip_padding=True, trailing 'X' or 'x' characters that look like padding are stripped.
-    """
-    if key_matrix.shape[0] != key_matrix.shape[1]:
-        raise ValueError("Key matrix must be square (n x n).")
-    n = key_matrix.shape[0]
 
-    letters, positions, cases = _collect_letters(ciphertext)
-    if len(letters) % n != 0:
-        raise ValueError(f"Cipher letter count ({len(letters)}) is not a multiple of key size ({n}).")
+# ---------- Cipher ----------
+def encrypt(message, K):
+    message_numbers = [letter_to_index[ch] for ch in message if ch in letter_to_index]
 
-    nums = np.array([ord(c) - ord('A') for c in letters]).reshape(-1, n)
-    inv_mat = matrix_mod_inv(key_matrix, 26)
-    decrypted = (nums @ inv_mat) % 26
-    decrypted_flat = [chr(int(num) + ord('A')) for row in decrypted for num in row]
+    while len(message_numbers) % K.shape[0] != 0:
+        message_numbers.append(letter_to_index[" "])
 
-    # Reinsert decrypted letters into original positions, using the *ciphertext's* case pattern
-    out_chars = list(ciphertext)
-    j = 0
-    for pos_index in positions:
-        dec_ch = decrypted_flat[j]
-        out_chars[pos_index] = dec_ch.lower() if cases[j] else dec_ch
-        j += 1
+    ciphertext = ""
+    for i in range(0, len(message_numbers), K.shape[0]):
+        block = np.array(message_numbers[i:i+K.shape[0]])[:, np.newaxis]
+        numbers = np.dot(K, block) % modulus
+        ciphertext += "".join(index_to_letter[int(num.item())] for num in numbers)
+    return ciphertext
 
-    result = ''.join(out_chars)
-    if strip_padding:
-        # Heuristic: remove trailing X/x characters (only if you accept the risk of removing a real trailing 'x')
-        result = result.rstrip('Xx')
-    return result
 
-# ---------------- GUI run (same structure as before, using the new functions) ----------------
+def decrypt(cipher, Kinv):
+    cipher_numbers = [letter_to_index[ch] for ch in cipher if ch in letter_to_index]
+
+    decrypted = ""
+    for i in range(0, len(cipher_numbers), Kinv.shape[0]):
+        block = np.array(cipher_numbers[i:i+Kinv.shape[0]])[:, np.newaxis]
+
+        while block.shape[0] < Kinv.shape[0]:
+            block = np.vstack([block, [[letter_to_index[" "]]]])
+
+        numbers = np.dot(Kinv, block) % modulus
+        decrypted += "".join(index_to_letter[int(num)] for num in numbers)
+
+    return decrypted.rstrip()
+
+
+# ---------- GUI ----------
 def run(parent=None):
-    if parent is None:
-        root = tk.Tk()
-    else:
-        root = tk.Toplevel(parent)
-    root.title("Text Cipher (case-preserving)")
+    window = tk.Toplevel(parent) if parent else tk.Tk()
+    window.title("Text Cipher (Encrypt & Decrypt)")
 
-    tk.Label(root, text="Enter Text:").pack(pady=5)
-    text_input = tk.Text(root, height=5, width=50)
-    text_input.pack(pady=5)
+    # Message for encryption
+    tk.Label(window, text="Message (for Encryption):").pack(pady=4)
+    msg_box = scrolledtext.ScrolledText(window, width=60, height=5)
+    msg_box.pack(pady=4)
 
-    tk.Label(root, text="Key Matrix (rows separated by ;, numbers by ,):").pack(pady=5)
-    key_entry = tk.Entry(root, width=50)
-    key_entry.insert(0, "3,3;2,5")
-    key_entry.pack(pady=5)
+    # Ciphertext for decryption
+    tk.Label(window, text="Ciphertext (for Decryption):").pack(pady=4)
+    cipher_box = scrolledtext.ScrolledText(window, width=60, height=5)
+    cipher_box.pack(pady=4)
 
-    result_box = tk.Text(root, height=6, width=50, bg="#f0f0f0")
-    result_box.pack(pady=10)
+    # Key input for decryption
+    tk.Label(window, text="Key Matrix (rows separated by ';', values by ',')").pack(pady=4)
+    key_box = scrolledtext.ScrolledText(window, width=60, height=4)
+    key_box.pack(pady=4)
 
-    def parse_key():
-        try:
-            mat = np.array([list(map(int, r.split(","))) for r in key_entry.get().split(";")])
-            if mat.shape[0] != mat.shape[1]:
-                messagebox.showerror("Error", "Key matrix must be square (n x n).")
-                return None
-            return mat
-        except Exception as e:
-            messagebox.showerror("Invalid key", f"Key parse error: {e}")
-            return None
+    # Buttons row for key copy/paste
+    key_btns = tk.Frame(window)
+    key_btns.pack(pady=2)
+    tk.Button(key_btns, text="Copy Key", command=lambda: window.clipboard_append(key_box.get("1.0", tk.END).strip())).pack(side="left", padx=4)
+    tk.Button(key_btns, text="Paste Key", command=lambda: (key_box.delete("1.0", tk.END), key_box.insert("1.0", window.clipboard_get()))).pack(side="left", padx=4)
 
-    def on_encrypt():
-        mat = parse_key()
-        if mat is None: return
-        msg = text_input.get("1.0", "end-1c")
-        try:
-            out = hill_encrypt(msg, mat)
-        except Exception as e:
-            messagebox.showerror("Encryption error", str(e))
+    # Output
+    tk.Label(window, text="Output:").pack(pady=4)
+    out_box = scrolledtext.ScrolledText(window, width=60, height=8)
+    out_box.pack(pady=4)
+
+    def encrypt_message():
+        msg = msg_box.get("1.0", tk.END).strip()
+        if not msg:
+            messagebox.showerror("Error", "Enter a message to encrypt")
             return
-        result_box.delete("1.0", "end")
-        result_box.insert("end", out)
+        K = generate_key(3)
+        cipher = encrypt(msg, K)
 
-    def on_decrypt():
-        mat = parse_key()
-        if mat is None: return
-        msg = text_input.get("1.0", "end-1c")
-        try:
-            out = hill_decrypt(msg, mat, strip_padding=False)
-        except Exception as e:
-            messagebox.showerror("Decryption error", str(e))
+        # Format key for copy-paste
+        key_str = ";".join(",".join(str(x) for x in row) for row in K)
+
+        out_box.delete("1.0", tk.END)
+        out_box.insert(tk.END, f"Ciphertext:\n{cipher}\n\nKey:\n{key_str}")
+
+        cipher_box.delete("1.0", tk.END)
+        cipher_box.insert(tk.END, cipher)
+        key_box.delete("1.0", tk.END)
+        key_box.insert(tk.END, key_str)
+
+    def decrypt_message():
+        cipher = cipher_box.get("1.0", tk.END).strip()
+        key_str = key_box.get("1.0", tk.END).strip()
+
+        if not cipher or not key_str:
+            messagebox.showerror("Error", "Enter ciphertext and key")
             return
-        result_box.delete("1.0", "end")
-        result_box.insert("end", out)
 
-    btn_frame = tk.Frame(root)
-    btn_frame.pack(pady=8)
-    tk.Button(btn_frame, text="Encrypt", command=on_encrypt).pack(side="left", padx=12)
-    tk.Button(btn_frame, text="Decrypt", command=on_decrypt).pack(side="left", padx=12)
+        try:
+            rows = [[int(x) for x in r.split(",")] for r in key_str.split(";")]
+            K = np.array(rows, dtype=int)
+            Kinv = matrix_mod_inv(K, modulus)
+        except Exception as e:
+            messagebox.showerror("Error", f"Invalid key format:\n{e}")
+            return
 
-    if parent is None:
-        root.mainloop()
+        plain = decrypt(cipher, Kinv)
+        out_box.delete("1.0", tk.END)
+        out_box.insert(tk.END, f"Plaintext:\n{plain}")
+
+    # Buttons
+    tk.Button(window, text="Encrypt", command=encrypt_message).pack(pady=6)
+    tk.Button(window, text="Decrypt", command=decrypt_message).pack(pady=6)
+
+    if not parent:
+        window.mainloop()
+
+
+if __name__ == "__main__":
+    run()
 
