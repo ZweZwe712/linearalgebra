@@ -1,37 +1,40 @@
+import tkinter as tk
 from hill import text_cipher, image_cipher, audio_cipher
 
-def main():
-    print("="*40)
-    print("   Hill Cipher Project - Multi Mode")
-    print("="*40)
-    print("Choose an option:")
-    print("1. Text Mode")
-    print("2. Image Mode")
-    print("3. Audio Mode")
-    print("0. Exit")
-
-    choice = input("Enter choice: ")
-
-    if choice == "1":
+def open_text():
+    try:
+        text_cipher.run(parent=root)
+    except TypeError:
         text_cipher.run()
-    elif choice == "2":
-        print("\nImage Mode:")
-        print("a. Encode")
-        print("b. Decode")
-        img_choice = input("Enter choice (a/b): ")
-        if img_choice.lower() == "a":
-            image_cipher.run(mode="encode")
-        elif img_choice.lower() == "b":
-            image_cipher.run(mode="decode")
-        else:
-            print("Invalid choice for image mode.")
-    elif choice == "3":
-        audio_cipher.run()
-    elif choice == "0":
-        print("Goodbye!")
-    else:
-        print("Invalid choice.")
 
-if __name__ == "__main__":
-    main()
-    
+def open_image_encoder():
+    try:
+        image_cipher.run_encoder(parent=root)
+    except TypeError:
+        image_cipher.run_encoder()
+
+def open_image_decoder():
+    try:
+        image_cipher.run_decoder(parent=root)
+    except TypeError:
+        image_cipher.run_decoder()
+
+def open_audio():
+    try:
+        audio_cipher.run(parent=root)
+    except TypeError:
+        audio_cipher.run()
+
+root = tk.Tk()
+root.title("Hill Cipher Project - Launcher")
+root.geometry("1200x800")
+
+tk.Label(root, text="--**Hill Cipher**--", font=("Arial", 32, "bold")).pack(pady=32)
+tk.Button(root, text="Open Text Cipher GUI", width=28, command=open_text).pack(pady=6)
+tk.Button(root, text="Open Image Encoder", width=28, command=open_image_encoder).pack(pady=6)
+tk.Button(root, text="Open Image Decoder", width=28, command=open_image_decoder).pack(pady=6)
+tk.Button(root, text="Open Audio Cipher GUI", width=28, command=open_audio).pack(pady=6)
+tk.Button(root, text="Exit", width=28, command=root.destroy).pack(pady=16)
+
+root.mainloop()
+
