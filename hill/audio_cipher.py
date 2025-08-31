@@ -21,19 +21,34 @@ try:
 except Exception:
     HAS_WINSOUND = False
 
-def encrypt_audio(path, key_matrix):
+def encrypt_audio(path, key_matrix, seed=1234):
     rate, data = wavfile.read(path)
     flat = data.flatten().astype(np.int64)
     n = key_matrix.shape[0]
 
+    # Pad to multiple of n
     while len(flat) % n != 0:
         flat = np.append(flat, 0)
 
-    flat = flat.reshape(-1, n)
-    encrypted = (flat @ key_matrix.astype(np.int64)) % 65536  # 16-bit audio range
+    blocks = flat.reshape(-1, n)
+
+    # --- Hill Cipher Encryption ---
+    encrypted = (blocks @ key_matrix.astype(np.int64)) % 65536
+
+    # --- Block Permutation (key-dependent) ---
+    np.random.seed(seed)
+    perm = np.random.permutation(encrypted.shape[0])
+    encrypted = encrypted[perm]
+
+    # --- XOR Masking (key-dependent) ---
+    np.random.seed(seed + 1)  # different stream
+    mask = np.random.randint(0, 65536, size=encrypted.shape, dtype=np.int64)
+    encrypted = (encrypted + mask) % 65536
+
+    # Flatten and truncate back to original length
     encrypted = encrypted.flatten()[:len(data)].astype(np.int16)
 
-    # Determine output path: audios/<original>-encrypted.wav
+    # Save encrypted file
     project_root = os.path.dirname(os.path.dirname(__file__))
     audios_dir = os.path.join(project_root, "audios")
     os.makedirs(audios_dir, exist_ok=True)
@@ -44,20 +59,36 @@ def encrypt_audio(path, key_matrix):
     print(f"Saved {out_path}")
     return out_path
 
-def decrypt_audio(path, key_matrix):
+def decrypt_audio(path, key_matrix, seed=1234):
     rate, data = wavfile.read(path)
     flat = data.flatten().astype(np.int64)
     n = key_matrix.shape[0]
 
+    # Pad to multiple of n
     while len(flat) % n != 0:
         flat = np.append(flat, 0)
 
-    flat = flat.reshape(-1, n)
+    blocks = flat.reshape(-1, n)
+
+    # --- Undo XOR Masking ---
+    np.random.seed(seed + 1)  # same as encryption
+    mask = np.random.randint(0, 65536, size=blocks.shape, dtype=np.int64)
+    blocks = (blocks - mask) % 65536
+
+    # --- Undo Block Permutation ---
+    np.random.seed(seed)
+    perm = np.random.permutation(blocks.shape[0])
+    inv_perm = np.argsort(perm)  # inverse permutation
+    blocks = blocks[inv_perm]
+
+    # --- Hill Cipher Decryption ---
     inv_matrix = matrix_mod_inv(key_matrix, 65536).astype(np.int64)
-    decrypted = (flat @ inv_matrix) % 65536
+    decrypted = (blocks @ inv_matrix) % 65536
+
+    # Flatten and truncate back to original length
     decrypted = decrypted.flatten()[:len(data)].astype(np.int16)
 
-    # Determine output path: audios/<original>-decrypted.wav
+    # Save decrypted file
     project_root = os.path.dirname(os.path.dirname(__file__))
     audios_dir = os.path.join(project_root, "audios")
     os.makedirs(audios_dir, exist_ok=True)
