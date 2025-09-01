@@ -114,39 +114,87 @@ class ModernAudioCipher:
     def setup_window(self):
         """Configure the main window"""
         self.window.title("🎵 Audio Cipher - Hill Encryption Suite")
-        self.window.geometry("1300x900")
+        self.window.geometry("1400x1000")
         self.window.configure(bg='#1a1a2e')
-        self.window.minsize(1200, 800)
+        self.window.minsize(1000, 700)  # Reduced minimum size for flexibility
+        
+        # Make window resizable
+        self.window.resizable(True, True)
         
         # Center the window
         self.window.update_idletasks()
-        x = (self.window.winfo_screenwidth() // 2) - (1300 // 2)
-        y = (self.window.winfo_screenheight() // 2) - (900 // 2)
-        self.window.geometry(f"1300x900+{x}+{y}")
+        x = (self.window.winfo_screenwidth() // 2) - (1400 // 2)
+        y = (self.window.winfo_screenheight() // 2) - (1000 // 2)
+        self.window.geometry(f"1400x1000+{x}+{y}")
         
-        # Configure grid
+        # Configure grid for main window (updated for scrollbar)
         self.window.grid_rowconfigure(0, weight=1)
         self.window.grid_columnconfigure(0, weight=1)
+        self.window.grid_columnconfigure(1, weight=0)  # For scrollbar
     
     def create_widgets(self):
-        """Create and arrange all GUI widgets"""
-        # Main container
-        main_frame = tk.Frame(self.window, bg='#1a1a2e')
-        main_frame.grid(row=0, column=0, sticky='nsew', padx=20, pady=20)
-        main_frame.grid_rowconfigure(2, weight=1)
-        main_frame.grid_columnconfigure(0, weight=1)
+        """Create and arrange all GUI widgets with scrollable functionality"""
+        # Create main canvas for scrolling
+        self.main_canvas = tk.Canvas(self.window, bg='#1a1a2e', highlightthickness=0)
+        self.main_canvas.grid(row=0, column=0, sticky='nsew')
+        
+        # Create scrollbar
+        self.scrollbar = tk.Scrollbar(self.window, orient="vertical", command=self.main_canvas.yview)
+        self.scrollbar.grid(row=0, column=1, sticky='ns')
+        
+        # Configure canvas scrolling
+        self.main_canvas.configure(yscrollcommand=self.scrollbar.set)
+        
+        # Create scrollable frame
+        self.scrollable_frame = tk.Frame(self.main_canvas, bg='#1a1a2e')
+        self.canvas_window = self.main_canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        
+        # Configure scrollable frame grid
+        self.scrollable_frame.grid_rowconfigure(2, weight=1)
+        self.scrollable_frame.grid_columnconfigure(0, weight=1)
+        
+        # Bind canvas resize events
+        self.main_canvas.bind('<Configure>', self.on_canvas_configure)
+        self.scrollable_frame.bind('<Configure>', self.on_frame_configure)
+        
+        # Bind mousewheel to canvas
+        self.main_canvas.bind("<MouseWheel>", self.on_mousewheel)
+        self.main_canvas.bind("<Button-4>", self.on_mousewheel)
+        self.main_canvas.bind("<Button-5>", self.on_mousewheel)
         
         # Header
-        self.create_header(main_frame)
+        self.create_header(self.scrollable_frame)
         
         # Control panel
-        self.create_control_panel(main_frame)
+        self.create_control_panel(self.scrollable_frame)
         
         # Waveform display area
-        self.create_waveform_display(main_frame)
+        self.create_waveform_display(self.scrollable_frame)
         
-        # Status bar
-        self.create_status_bar(main_frame)
+        # Status bar (fixed at bottom of main window, not scrollable)
+        self.create_status_bar_fixed()
+    
+    def on_canvas_configure(self, event):
+        """Handle canvas resize events"""
+        # Update the canvas window width to match canvas width
+        canvas_width = event.width
+        self.main_canvas.itemconfig(self.canvas_window, width=canvas_width)
+    
+    def on_frame_configure(self, event):
+        """Handle frame resize events"""
+        # Update scroll region when frame size changes
+        self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+    
+    def on_mousewheel(self, event):
+        """Handle mouse wheel scrolling"""
+        # For Windows and MacOS
+        if event.delta:
+            self.main_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        # For Linux
+        elif event.num == 4:
+            self.main_canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self.main_canvas.yview_scroll(1, "units")
     
     def create_header(self, parent):
         """Create header section"""
@@ -184,19 +232,19 @@ class ModernAudioCipher:
         file_section.grid_columnconfigure(5, weight=1)
         
         # Import and play original
-        self.create_control_button(file_section, "📂 Import Audio", self.import_audio, '#2196f3').grid(row=0, column=0, padx=5)
-        self.create_control_button(file_section, "▶️ Play Original", self.play_original, '#4caf50').grid(row=0, column=1, padx=5)
+        self.create_control_button(file_section, "📂Import Audio", self.import_audio, '#2196f3').grid(row=0, column=0, padx=5)
+        self.create_control_button(file_section, "▶️Play Original", self.play_original, '#4caf50').grid(row=0, column=1, padx=5)
         
         # Encryption controls
-        self.create_control_button(file_section, "🔐 Encrypt", self.encrypt_audio_file, '#ff9800').grid(row=0, column=2, padx=5)
-        self.create_control_button(file_section, "▶️ Play Encrypted", self.play_encrypted, '#ff5722').grid(row=0, column=3, padx=5)
+        self.create_control_button(file_section, "🔐Encrypt", self.encrypt_audio_file, '#ff9800').grid(row=0, column=2, padx=5)
+        self.create_control_button(file_section, "▶️Play Encrypted", self.play_encrypted, '#ff5722').grid(row=0, column=3, padx=5)
         
         # Decryption controls
-        self.create_control_button(file_section, "🔓 Decrypt", self.decrypt_audio_file, '#9c27b0').grid(row=0, column=4, padx=5)
-        self.create_control_button(file_section, "▶️ Play Decrypted", self.play_decrypted, '#00bcd4').grid(row=0, column=5, padx=5)
+        self.create_control_button(file_section, "🔓Decrypt", self.decrypt_audio_file, '#9c27b0').grid(row=0, column=4, padx=5)
+        self.create_control_button(file_section, "▶️Play Decrypted", self.play_decrypted, '#00bcd4').grid(row=0, column=5, padx=5)
         
         # Exit button
-        self.create_control_button(file_section, "🚪 Exit", self.window.destroy, '#f44336').grid(row=0, column=6, padx=5)
+        self.create_control_button(file_section, "🚪Exit", self.window.destroy, '#f44336').grid(row=0, column=6, padx=5)
         
         # Info section
         info_section = tk.Frame(control_frame, bg='#16213e')
@@ -254,13 +302,23 @@ class ModernAudioCipher:
     
     def create_waveform_display(self, parent):
         """Create waveform visualization area"""
-        # Create matplotlib figure
-        self.fig = Figure(figsize=(13, 8), dpi=100, facecolor='#1a1a2e')
+        # Create matplotlib figure with better sizing for scrollable content
+        self.fig = Figure(figsize=(14, 12), dpi=100, facecolor='#1a1a2e')
+        
+        # Much more generous subplot spacing
+        self.fig.subplots_adjust(
+            left=0.08,      
+            right=0.95,     
+            top=0.95,       
+            bottom=0.05,    
+            hspace=0.6      # Increased spacing between subplots
+        )
+        
         self.ax_orig = self.fig.add_subplot(311, facecolor='#263238')
         self.ax_enc = self.fig.add_subplot(312, facecolor='#263238')
         self.ax_dec = self.fig.add_subplot(313, facecolor='#263238')
         
-        # Configure axes
+        # Configure axes with better spacing
         axes_config = [
             (self.ax_orig, "🎧 Original Audio Waveform", '#4caf50'),
             (self.ax_enc, "🔐 Encrypted Audio Waveform", '#ff9800'),
@@ -268,28 +326,29 @@ class ModernAudioCipher:
         ]
         
         for ax, title, color in axes_config:
-            ax.set_title(title, color='white', fontsize=12, fontweight='bold', pad=15)
+            ax.set_title(title, color='white', fontsize=12, fontweight='bold', pad=20)
             ax.set_xlabel("Time (samples)", color='white', fontsize=10)
             ax.set_ylabel("Amplitude", color='white', fontsize=10)
             ax.grid(True, alpha=0.3, color='#37474f')
-            ax.tick_params(colors='white', labelsize=8)
+            ax.tick_params(colors='white', labelsize=9)
             
             # Style spines
             for spine in ax.spines.values():
                 spine.set_color('#37474f')
                 spine.set_linewidth(1)
         
-        self.fig.tight_layout(pad=2.0)
-        
         # Create canvas
         self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
         self.canvas.draw()
-        self.canvas.get_tk_widget().grid(row=2, column=0, sticky='nsew', pady=(0, 15))
+        self.canvas.get_tk_widget().grid(row=2, column=0, sticky='nsew', pady=(20, 30), padx=20)
     
-    def create_status_bar(self, parent):
-        """Create status bar"""
-        self.status_frame = tk.Frame(parent, bg='#263238', height=35)
-        self.status_frame.grid(row=3, column=0, sticky='ew')
+    def create_status_bar_fixed(self):
+        """Create fixed status bar at bottom of main window"""
+        # Configure grid to add status bar row
+        self.window.grid_rowconfigure(1, weight=0)
+        
+        self.status_frame = tk.Frame(self.window, bg='#263238', height=40)
+        self.status_frame.grid(row=1, column=0, columnspan=2, sticky='ew')
         self.status_frame.grid_propagate(False)
         self.status_frame.grid_columnconfigure(0, weight=1)
         
@@ -297,7 +356,11 @@ class ModernAudioCipher:
                                     text="🔊 Ready - Import an audio file to begin encryption",
                                     font=('Segoe UI', 10),
                                     fg='#4caf50', bg='#263238')
-        self.status_label.grid(row=0, column=0, padx=15, pady=8, sticky='w')
+        self.status_label.grid(row=0, column=0, padx=15, pady=10, sticky='w')
+    
+    def create_status_bar(self, parent):
+        """Legacy method - now handled by create_status_bar_fixed"""
+        pass
     
     def update_status(self, message, color='#4caf50'):
         """Update status bar message"""
@@ -328,7 +391,7 @@ class ModernAudioCipher:
         for ax in [self.ax_orig, self.ax_enc, self.ax_dec]:
             ax.clear()
         
-        # Reconfigure axes after clearing
+        # Reconfigure axes after clearing with proper spacing
         axes_config = [
             (self.ax_orig, "🎧 Original Audio Waveform", '#4caf50'),
             (self.ax_enc, "🔐 Encrypted Audio Waveform", '#ff9800'),
@@ -337,11 +400,11 @@ class ModernAudioCipher:
         
         for ax, title, color in axes_config:
             ax.set_facecolor('#263238')
-            ax.set_title(title, color='white', fontsize=12, fontweight='bold', pad=15)
+            ax.set_title(title, color='white', fontsize=12, fontweight='bold', pad=20)
             ax.set_xlabel("Time (samples)", color='white', fontsize=10)
             ax.set_ylabel("Amplitude", color='white', fontsize=10)
             ax.grid(True, alpha=0.3, color='#37474f')
-            ax.tick_params(colors='white', labelsize=8)
+            ax.tick_params(colors='white', labelsize=9)
             
             # Style spines
             for spine in ax.spines.values():
@@ -353,7 +416,6 @@ class ModernAudioCipher:
             data, rate = self.load_wav_for_plot(self.current_path)
             if data is not None:
                 self.ax_orig.plot(data, color='#4caf50', linewidth=0.8, alpha=0.8)
-                self.ax_orig.set_title("🎧 Original Audio Waveform", color='white', fontsize=12, fontweight='bold', pad=15)
             else:
                 self.ax_orig.text(0.5, 0.5, "❌ Failed to load original audio", 
                                  transform=self.ax_orig.transAxes, ha='center', va='center',
@@ -368,7 +430,6 @@ class ModernAudioCipher:
             data, rate = self.load_wav_for_plot(self.encrypted_path)
             if data is not None:
                 self.ax_enc.plot(data, color='#ff9800', linewidth=0.8, alpha=0.8)
-                self.ax_enc.set_title("🔐 Encrypted Audio Waveform", color='white', fontsize=12, fontweight='bold', pad=15)
             else:
                 self.ax_enc.text(0.5, 0.5, "❌ Failed to load encrypted audio", 
                                 transform=self.ax_enc.transAxes, ha='center', va='center',
@@ -383,7 +444,6 @@ class ModernAudioCipher:
             data, rate = self.load_wav_for_plot(self.decrypted_path)
             if data is not None:
                 self.ax_dec.plot(data, color='#2196f3', linewidth=0.8, alpha=0.8)
-                self.ax_dec.set_title("🔓 Decrypted Audio Waveform", color='white', fontsize=12, fontweight='bold', pad=15)
             else:
                 self.ax_dec.text(0.5, 0.5, "❌ Failed to load decrypted audio", 
                                 transform=self.ax_dec.transAxes, ha='center', va='center',
@@ -393,8 +453,20 @@ class ModernAudioCipher:
                             transform=self.ax_dec.transAxes, ha='center', va='center',
                             color='#78909c', fontsize=12)
         
-        self.fig.tight_layout(pad=2.0)
+        # Apply the spacing adjustments with increased spacing
+        self.fig.subplots_adjust(
+            left=0.08,      
+            right=0.95,     
+            top=0.95,       
+            bottom=0.05,    
+            hspace=0.6      # Even more spacing
+        )
+        
         self.canvas.draw_idle()
+        
+        # Update scroll region after drawing
+        self.scrollable_frame.update_idletasks()
+        self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
     
     def play_audio_file(self, path, file_type="audio"):
         """Play audio file using winsound"""
